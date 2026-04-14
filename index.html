@@ -1,10 +1,890 @@
-
 <!DOCTYPE html>
-<html>
+<html lang="fr">
 <head>
-  <title>Mon site</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Grid Conquest</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@600;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #0f0f19;
+    --panel-bg:  #14141f;
+    --grid-line: #23233a;
+    --text:      #dcdcf0;
+    --player:    #3c8cff;
+    --player-l:  #8cc8ff;
+    --ai:        #ff4659;
+    --ai-l:      #ff8c96;
+    --yellow:    #ffdc32;
+    --green-hl:  #c8ff96;
+    --border:    #37375a;
+    --val0: #16161f;
+    --val1: #233c55;
+    --val2: #2d5f41;
+    --val3: #4b7d2d;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    padding: 20px 10px;
+    overflow-x: hidden;
+  }
+
+  h1 {
+    font-family: 'Orbitron', monospace;
+    font-weight: 900;
+    font-size: clamp(1.2rem, 3vw, 2rem);
+    letter-spacing: 0.15em;
+    color: #c8c8ff;
+    margin-bottom: 16px;
+    text-shadow: 0 0 24px rgba(180,160,255,0.4);
+  }
+
+  #game-wrap {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    width: 100%;
+    max-width: 1000px;
+  }
+
+  /* ── CANVAS ── */
+  #game-canvas {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    flex-shrink: 0;
+    image-rendering: pixelated;
+    box-shadow: 0 0 32px rgba(60,140,255,0.08);
+  }
+
+  /* ── PANEL ── */
+  #panel {
+    background: var(--panel-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 12px;
+    width: 210px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 8px 0;
+  }
+
+  /* Tour counter */
+  #turn-bar-wrap { margin-bottom: 6px; }
+  #turn-bar-bg {
+    height: 7px;
+    background: #23233a;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 3px;
+  }
+  #turn-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.3s, background 0.3s;
+  }
+  #turn-label { font-size: 10px; color: #a0a0c8; }
+
+  /* Scores */
+  .score-block { margin: 4px 0; }
+  .score-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-family: 'Orbitron', monospace;
+    font-weight: 600;
+    margin-bottom: 2px;
+  }
+  .dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .score-val {
+    font-size: 20px;
+    font-family: 'Orbitron', monospace;
+    font-weight: 900;
+    letter-spacing: 0.05em;
+  }
+
+  /* Boutons déplacement */
+  #steps-label {
+    font-size: 11px;
+    color: #aaaacc;
+    letter-spacing: 0.1em;
+    margin-bottom: 6px;
+  }
+  #step-btns {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+  .step-btn {
+    flex: 1;
+    background: #2d2d47;
+    border: 2px solid #50507a;
+    border-radius: 8px;
+    color: #c8c8ff;
+    font-family: 'Orbitron', monospace;
+    font-weight: 900;
+    font-size: 22px;
+    padding: 8px 0 4px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s;
+    line-height: 1;
+    user-select: none;
+  }
+  .step-btn .sub {
+    display: block;
+    font-size: 9px;
+    font-family: 'Share Tech Mono', monospace;
+    font-weight: 400;
+    color: #8888aa;
+    margin-top: 2px;
+  }
+  .step-btn .key {
+    display: block;
+    font-size: 8px;
+    font-family: 'Share Tech Mono', monospace;
+    color: #555577;
+    text-align: right;
+    padding-right: 4px;
+  }
+  .step-btn:hover { border-color: var(--yellow); background: #3a3a58; }
+  .step-btn.active {
+    background: var(--yellow);
+    border-color: var(--yellow);
+    color: #111;
+  }
+  .step-btn.active .sub, .step-btn.active .key { color: #333; }
+
+  /* Info 2 cases */
+  #step-info {
+    font-size: 10px;
+    color: var(--green-hl);
+    min-height: 14px;
+    margin-bottom: 2px;
+  }
+
+  /* Bouton passer */
+  #skip-btn {
+    width: 100%;
+    background: #324832;
+    border: 1px solid #507050;
+    border-radius: 6px;
+    color: #b4ffb4;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    padding: 7px;
+    cursor: pointer;
+    display: none;
+    margin-bottom: 4px;
+    transition: background 0.15s;
+  }
+  #skip-btn:hover { background: #3e5e3e; }
+
+  /* Légende */
+  .legend-title { font-size: 10px; color: #9696be; letter-spacing: 0.1em; margin-bottom: 4px; }
+  .legend-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    color: var(--text);
+    margin-bottom: 3px;
+  }
+  .legend-swatch {
+    width: 12px; height: 12px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+  .legend-note { font-size: 9px; color: #787898; margin-bottom: 2px; }
+
+  /* Bouton nouvelle partie */
+  #new-game-btn {
+    width: 100%;
+    background: #371f4b;
+    border: 1px solid #6632a0;
+    border-radius: 8px;
+    color: #d2a8ff;
+    font-family: 'Orbitron', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 10px;
+    cursor: pointer;
+    letter-spacing: 0.08em;
+    margin-top: 2px;
+    transition: background 0.15s;
+  }
+  #new-game-btn:hover { background: #452560; }
+
+  /* Barre de statut */
+  #statusbar {
+    width: 100%;
+    max-width: 1000px;
+    background: #0c0c16;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 16px;
+    margin-top: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+  }
+  #status-turn {
+    font-family: 'Orbitron', monospace;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  #status-msg { font-size: 11px; color: #aaaacc; }
+  #status-score {
+    font-family: 'Orbitron', monospace;
+    font-size: 11px;
+    color: #8282af;
+    white-space: nowrap;
+  }
+
+  /* Animation pulse sur pion actif */
+  @keyframes pulse-player {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(60,140,255,0.5); }
+    50% { box-shadow: 0 0 0 8px rgba(60,140,255,0); }
+  }
+
+  /* Responsive */
+  @media (max-width: 700px) {
+    #game-wrap { flex-direction: column; align-items: center; }
+    #panel { width: 100%; max-width: 400px; flex-direction: row; flex-wrap: wrap; }
+  }
+</style>
 </head>
 <body>
-  <h1>Bienvenue 🎉</h1>
+
+<h1>⬡ GRID CONQUEST</h1>
+
+<div id="game-wrap">
+  <canvas id="game-canvas"></canvas>
+
+  <div id="panel">
+    <!-- Tours -->
+    <div id="turn-bar-wrap">
+      <div id="turn-bar-bg"><div id="turn-bar-fill"></div></div>
+      <div id="turn-label">Tours : 0/30</div>
+    </div>
+    <div class="divider"></div>
+
+    <!-- Scores -->
+    <div class="score-block">
+      <div class="score-header">
+        <div class="dot" style="background:var(--player)"></div>
+        <span style="color:var(--player-l)">JOUEUR</span>
+      </div>
+      <div class="score-val" id="player-pts" style="color:var(--yellow)">3.0</div>
+    </div>
+    <div class="divider"></div>
+    <div class="score-block">
+      <div class="score-header">
+        <div class="dot" style="background:var(--ai)"></div>
+        <span style="color:var(--ai-l)">IA</span>
+      </div>
+      <div class="score-val" id="ai-pts" style="color:var(--ai-l)">3.0</div>
+    </div>
+    <div class="divider"></div>
+
+    <!-- Déplacement -->
+    <div id="steps-label">DÉPLACEMENT</div>
+    <div id="step-btns">
+      <button class="step-btn active" id="btn-1" onclick="selectSteps(1)">
+        1<span class="sub">case</span><span class="key">[1]</span>
+      </button>
+      <button class="step-btn" id="btn-2" onclick="selectSteps(2)">
+        2<span class="sub">cases /2</span><span class="key">[2]</span>
+      </button>
+    </div>
+    <div id="step-info"></div>
+
+    <!-- Passer -->
+    <button id="skip-btn" onclick="skipTurn()">PASSER [ESPACE]</button>
+
+    <div class="divider"></div>
+
+    <!-- Légende -->
+    <div class="legend-title">LÉGENDE</div>
+    <div class="legend-row"><div class="legend-swatch" style="background:#16161f"></div>0 pt (vide)</div>
+    <div class="legend-row"><div class="legend-swatch" style="background:#233c55"></div>1 pt</div>
+    <div class="legend-row"><div class="legend-swatch" style="background:#2d5f41"></div>2 pts</div>
+    <div class="legend-row"><div class="legend-swatch" style="background:#4b7d2d"></div>3 pts</div>
+    <div class="legend-note">Propre = traversable (0 gain)</div>
+    <div class="legend-note">Coût : 0.5 pt/case</div>
+
+    <div class="divider"></div>
+    <button id="new-game-btn" onclick="resetGame()">NOUVELLE PARTIE [R]</button>
+  </div>
+</div>
+
+<div id="statusbar">
+  <div id="status-turn" style="color:var(--player-l)">TON TOUR</div>
+  <div id="status-msg">À toi de jouer !</div>
+  <div id="status-score">Joueur : 3.0 | IA : 3.0</div>
+</div>
+
+<script>
+// ─── CONFIG ───────────────────────────────────────────────────
+const G         = 15;
+const MOVE_COST = 0.5;
+const MAX_TURNS = 30;
+
+// Taille de cellule responsive
+function cellSize() {
+  const maxW = Math.min(window.innerWidth - 240, 660);
+  return Math.floor(Math.min(maxW / G, 44));
+}
+
+// ─── ÉTAT ─────────────────────────────────────────────────────
+let board, ownership, playerPos, aiPos;
+let playerPoints, aiPoints;
+let turn, selectedSteps, pendingMid, highlights, midOptions;
+let message, gameOver, playerBlocked, aiBlocked, turnCount;
+
+// ─── CANVAS ───────────────────────────────────────────────────
+const canvas = document.getElementById('game-canvas');
+const ctx    = canvas.getContext('2d');
+
+function resizeCanvas() {
+  const cs = cellSize();
+  canvas.width  = G * cs;
+  canvas.height = G * cs;
+  drawBoard();
+}
+
+// ─── GÉNÉRATION ───────────────────────────────────────────────
+function rndInt(a, b) { return Math.floor(Math.random() * (b - a + 1)) + a; }
+function rndChoice(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function weightedChoice(vals, weights) {
+  const total = weights.reduce((a,b) => a+b, 0);
+  let r = Math.random() * total;
+  for (let i = 0; i < vals.length; i++) { r -= weights[i]; if (r <= 0) return vals[i]; }
+  return vals[vals.length-1];
+}
+
+function makeForbidden() {
+  const f = new Set();
+  for (let di = 0; di < 3; di++)
+    for (let dj = 0; dj < 3; dj++) {
+      f.add(`${di},${dj}`);
+      f.add(`${G-1-di},${G-1-dj}`);
+    }
+  return f;
+}
+
+function applyCluster(board, cx, cy, radius, forbidden) {
+  for (let di = -radius; di <= radius; di++)
+    for (let dj = -radius; dj <= radius; dj++) {
+      const ni = cx+di, nj = cy+dj;
+      if (ni<0||ni>=G||nj<0||nj>=G) continue;
+      if (forbidden.has(`${ni},${nj}`)) continue;
+      const dist = Math.abs(di)+Math.abs(dj);
+      if (dist===0||dist===1) board[ni][nj] = 3;
+      else if (dist===2) board[ni][nj] = Math.max(board[ni][nj], 2);
+      else board[ni][nj] = Math.max(board[ni][nj], 1);
+    }
+}
+
+function generateBoard() {
+  const board = Array.from({length:G}, () => Array(G).fill(0));
+  const styles = ['clusters','corridors','archipel','diagonale','canyon'];
+  const style  = rndChoice(styles);
+  const forbidden = makeForbidden();
+  const zeroW = rndInt(48, 62);
+
+  // Base noise
+  for (let i=0;i<G;i++) for (let j=0;j<G;j++)
+    board[i][j] = weightedChoice([0,1,2], [zeroW, 100-zeroW-6, 6]);
+
+  if (style === 'clusters') {
+    const n = rndInt(5,9);
+    const placed = [];
+    let att = 0;
+    while (placed.length < n && att < 2000) {
+      const cx=rndInt(1,G-2), cy=rndInt(1,G-2), r=rndInt(1,3);
+      const tooClose = placed.some(([ox,oy,or_]) => Math.abs(cx-ox)+Math.abs(cy-oy) < r+or_+1);
+      if (!tooClose && !forbidden.has(`${cx},${cy}`)) { placed.push([cx,cy,r]); }
+      att++;
+    }
+    placed.forEach(([cx,cy,r]) => applyCluster(board,cx,cy,r,forbidden));
+
+  } else if (style === 'corridors') {
+    const n = rndInt(3,6);
+    for (let k=0;k<n;k++) {
+      const val = rndChoice([2,2,3]);
+      if (Math.random()<0.5) {
+        const row=rndInt(1,G-2), cs=rndInt(0,Math.floor(G/2)), len=rndInt(4,G-2);
+        for (let c=cs;c<Math.min(cs+len,G);c++) if(!forbidden.has(`${row},${c}`)) board[row][c]=val;
+      } else {
+        const col=rndInt(1,G-2), rs=rndInt(0,Math.floor(G/2)), len=rndInt(4,G-2);
+        for (let r=rs;r<Math.min(rs+len,G);r++) if(!forbidden.has(`${r},${col}`)) board[r][col]=val;
+      }
+    }
+
+  } else if (style === 'archipel') {
+    for (let i=0;i<G;i++) for (let j=0;j<G;j++) board[i][j]=0;
+    const n=rndInt(8,14); const placed=[];
+    let att=0;
+    while (placed.length<n && att<2000) {
+      const cx=rndInt(1,G-2), cy=rndInt(1,G-2);
+      if (!placed.some(([ox,oy]) => Math.abs(cx-ox)+Math.abs(cy-oy)<3) && !forbidden.has(`${cx},${cy}`)) {
+        placed.push([cx,cy]); applyCluster(board,cx,cy,1,forbidden);
+      }
+      att++;
+    }
+
+  } else if (style === 'diagonale') {
+    for (let i=0;i<G;i++) for (let j=0;j<G;j++) {
+      if (forbidden.has(`${i},${j}`)) continue;
+      const d = Math.abs((i-j) - rndInt(-2,2));
+      if (d===0) board[i][j]=3;
+      else if (d<=2) board[i][j]=Math.max(board[i][j],rndChoice([1,2]));
+    }
+    const n=rndInt(2,4);
+    for (let k=0;k<n;k++) {
+      for (let a=0;a<500;a++) {
+        const cx=rndInt(2,G-3), cy=rndInt(2,G-3);
+        if (Math.abs(cx-cy)>4 && !forbidden.has(`${cx},${cy}`)) {
+          applyCluster(board,cx,cy,rndInt(1,2),forbidden); break;
+        }
+      }
+    }
+
+  } else if (style === 'canyon') {
+    const mid=Math.floor(G/2), cw=rndInt(2,4);
+    for (let i=0;i<G;i++) for (let j=0;j<G;j++) {
+      if (forbidden.has(`${i},${j}`)) continue;
+      board[i][j] = Math.abs(j-mid)<=cw
+        ? weightedChoice([0,1],[85,15])
+        : weightedChoice([0,1,2,3],[30,35,25,10]);
+    }
+    [2, G-3].forEach(side => {
+      for (let k=0;k<rndInt(2,3);k++) {
+        const cy=rndInt(2,G-3);
+        applyCluster(board,side,cy,rndInt(1,2),forbidden);
+      }
+    });
+  }
+
+  // Équilibrage
+  balanceBoard(board, forbidden);
+  board[0][0]=0; board[G-1][G-1]=0;
+  return board;
+}
+
+function balanceBoard(board, forbidden) {
+  function zoneScore(player) {
+    let total=0;
+    for (let i=0;i<G;i++) for (let j=0;j<G;j++) {
+      const inZone = player===1 ? (i+j<G) : (i+j>=G);
+      if (inZone && !forbidden.has(`${i},${j}`)) total+=board[i][j];
+    }
+    return total;
+  }
+  for (let pass=0;pass<8;pass++) {
+    const s1=zoneScore(1), s2=zoneScore(2), diff=s1-s2;
+    if (Math.abs(diff)<=3) break;
+    const boostZone = diff>0 ? 2 : 1;
+    const candidates=[];
+    for (let i=0;i<G;i++) for (let j=0;j<G;j++) {
+      const inZone = boostZone===1 ? (i+j<G) : (i+j>=G);
+      if (inZone && !forbidden.has(`${i},${j}`) && board[i][j]<3) candidates.push([i,j]);
+    }
+    if (!candidates.length) break;
+    candidates.sort(()=>Math.random()-0.5);
+    const n = Math.min(Math.floor(Math.abs(diff))+1, candidates.length, 4);
+    for (let k=0;k<n;k++) {
+      const [i,j]=candidates[k];
+      board[i][j]=Math.min(board[i][j]+1,3);
+    }
+  }
+}
+
+// ─── IA ───────────────────────────────────────────────────────
+function aiMoveCalc() {
+  const [row,col]=aiPos;
+  const dirs=[[-1,0],[1,0],[0,-1],[0,1]];
+  let bestScore=-999, bestDest=null, bestMid=null, bestSteps=1;
+
+  function walkable(r,c) {
+    if (r<0||r>=G||c<0||c>=G) return false;
+    return board[r][c]>=0 || ownership[r][c]===2;
+  }
+  function cellVal(r,c) { return board[r][c]>=0 ? board[r][c] : 0; }
+
+  if (aiPoints >= MOVE_COST) {
+    dirs.forEach(([dr,dc]) => {
+      const nr=row+dr, nc=col+dc;
+      if (!walkable(nr,nc)) return;
+      const val=cellVal(nr,nc);
+      const mob=dirs.filter(([ddr,ddc])=>walkable(nr+ddr,nc+ddc)).length;
+      const score=val*10+mob*2;
+      if (score>bestScore) { bestScore=score; bestDest=[nr,nc]; bestMid=null; bestSteps=1; }
+    });
+  }
+  if (aiPoints >= MOVE_COST*2) {
+    dirs.forEach(([dr,dc]) => {
+      const nr=row+dr, nc=col+dc;
+      if (!walkable(nr,nc)) return;
+      dirs.forEach(([dr2,dc2]) => {
+        const nr2=nr+dr2, nc2=nc+dc2;
+        if (!walkable(nr2,nc2) || (nr2===row&&nc2===col)) return;
+        const vm=cellVal(nr,nc), vd=Math.floor(cellVal(nr2,nc2)/2);
+        const mob=dirs.filter(([ddr,ddc])=>walkable(nr2+ddr,nc2+ddc)).length;
+        const score=vm*6+vd*10+mob*2;
+        if (score>bestScore) { bestScore=score; bestDest=[nr2,nc2]; bestMid=[nr,nc]; bestSteps=2; }
+      });
+    });
+  }
+  return {dest:bestDest, mid:bestMid, steps:bestSteps};
+}
+
+// ─── LOGIQUE JEU ──────────────────────────────────────────────
+function resetGame() {
+  board       = generateBoard();
+  ownership   = Array.from({length:G}, ()=>Array(G).fill(0));
+  playerPos   = [0,0];
+  aiPos       = [G-1,G-1];
+  ownership[0][0]=1;
+  ownership[G-1][G-1]=2;
+  board[0][0]=-1;
+  board[G-1][G-1]=-1;
+  playerPoints=3.0; aiPoints=3.0;
+  turn='player'; selectedSteps=1;
+  pendingMid=null; highlights=[]; midOptions=[];
+  message='À toi de jouer !';
+  gameOver=false; playerBlocked=false; aiBlocked=false; turnCount=0;
+  updateHighlights();
+  render();
+}
+
+function walkable(r, c, owner) {
+  if (r<0||r>=G||c<0||c>=G) return false;
+  if (board[r][c]>=0) return true;
+  if (owner!==undefined && ownership[r][c]===owner) return true;
+  return false;
+}
+
+function reachable(pos, owner) {
+  const [row,col]=pos;
+  return [[-1,0],[1,0],[0,-1],[0,1]]
+    .map(([dr,dc])=>[row+dr,col+dc])
+    .filter(([r,c])=>walkable(r,c,owner));
+}
+
+function twoStepPaths(pos, owner) {
+  const paths=[];
+  reachable(pos,owner).forEach(mid => {
+    reachable(mid,owner).forEach(dest => {
+      if (dest[0]!==pos[0]||dest[1]!==pos[1]) paths.push({mid,dest});
+    });
+  });
+  return paths;
+}
+
+function isBlocked(pos, owner) { return reachable(pos,owner).length===0; }
+
+function cellKey(r,c) { return `${r},${c}`; }
+function inList(list, rc) { return list.some(([r,c])=>r===rc[0]&&c===rc[1]); }
+
+function updateHighlights() {
+  highlights=[]; midOptions=[]; pendingMid=null;
+  if (turn!=='player'||playerBlocked||gameOver) return;
+  if (selectedSteps===1) {
+    highlights=reachable(playerPos,1);
+  } else {
+    const paths=twoStepPaths(playerPos,1);
+    const seen=new Set();
+    paths.forEach(({mid})=>{ const k=cellKey(mid[0],mid[1]); if(!seen.has(k)){seen.add(k);midOptions.push(mid);} });
+  }
+}
+
+function updateHighlightsAfterMid(mid) {
+  pendingMid=mid;
+  highlights=twoStepPaths(playerPos,1).filter(p=>p.mid[0]===mid[0]&&p.mid[1]===mid[1]).map(p=>p.dest);
+  midOptions=[];
+}
+
+function claim(r, c, owner) {
+  const gain = board[r][c]>=0 ? board[r][c] : 0;
+  if (board[r][c]>=0) board[r][c]=-1;
+  ownership[r][c]=owner;
+  return gain;
+}
+
+function doPlayerMove1(dest) {
+  const [r,c]=dest;
+  const val=claim(r,c,1);
+  playerPos=dest;
+  playerPoints=Math.max(0, playerPoints-MOVE_COST+val);
+  message=val>0 ? `+${val} pt (1 case)` : 'Case déjà colorée (0 pt)';
+  afterPlayer();
+}
+
+function doPlayerMove2(mid, dest) {
+  const rawMid  = board[mid[0]][mid[1]]>=0 ? board[mid[0]][mid[1]] : 0;
+  const rawDest = board[dest[0]][dest[1]]>=0 ? board[dest[0]][dest[1]] : 0;
+  const valMid  = rawMid;
+  const valDest = Math.floor(rawDest / 2);
+  claim(mid[0],mid[1],1);
+  claim(dest[0],dest[1],1);
+  playerPos=dest;
+  const gained=valMid+valDest;
+  playerPoints=Math.max(0, playerPoints-MOVE_COST*2+gained);
+  message=`+${gained} pts (2 cases : ${valMid} + ${valDest})`;
+  afterPlayer();
+}
+
+function afterPlayer() {
+  turnCount++;
+  turn='ai';
+  highlights=[]; midOptions=[]; pendingMid=null;
+  render();
+  setTimeout(doAiTurn, 220);
+}
+
+function doAiTurn() {
+  if (isBlocked(aiPos,2)) {
+    aiBlocked=true; checkGameOver();
+    turn='player';
+    if (!playerBlocked) updateHighlights();
+    render(); return;
+  }
+  if (aiPoints < MOVE_COST) {
+    aiPoints+=1.0;
+    message="L'IA passe son tour (+1 pt)";
+    turn='player';
+    if (!isBlocked(playerPos,1)) updateHighlights();
+    else { playerBlocked=true; checkGameOver(); }
+    render(); return;
+  }
+  const {dest,mid,steps}=aiMoveCalc();
+  if (!dest) { aiBlocked=true; }
+  else if (steps===1) {
+    const val=claim(dest[0],dest[1],2);
+    aiPos=dest; aiPoints=Math.max(0,aiPoints-MOVE_COST+val);
+  } else {
+    const rawM=board[mid[0]][mid[1]]>=0?board[mid[0]][mid[1]]:0;
+    const rawD=board[dest[0]][dest[1]]>=0?board[dest[0]][dest[1]]:0;
+    claim(mid[0],mid[1],2);
+    claim(dest[0],dest[1],2);
+    const vm=rawM, vd=Math.floor(rawD/2);
+    aiPos=dest; aiPoints=Math.max(0,aiPoints-MOVE_COST*2+vm+vd);
+  }
+  turn='player';
+  if (checkTurnLimit()) { render(); return; }
+  if (isBlocked(playerPos,1)) { playerBlocked=true; checkGameOver(); }
+  else updateHighlights();
+  render();
+}
+
+function checkGameOver(timeLimit=false) {
+  if ((playerBlocked&&aiBlocked)||timeLimit) {
+    gameOver=true;
+    const ps=playerPoints, ai=aiPoints;
+    const prefix=timeLimit?'TEMPS ! ':'';
+    if (ps>ai) message=`${prefix}TU GAGNES ! ${ps.toFixed(1)} vs ${ai.toFixed(1)}`;
+    else if (ai>ps) message=`${prefix}L'IA GAGNE ! ${ai.toFixed(1)} vs ${ps.toFixed(1)}`;
+    else message=`${prefix}ÉGALITÉ ! ${ps.toFixed(1)} pts chacun`;
+    return true;
+  }
+  return false;
+}
+
+function checkTurnLimit() {
+  if (turnCount>=MAX_TURNS && !gameOver) { checkGameOver(true); return true; }
+  return false;
+}
+
+function skipTurn() {
+  if (turn==='player' && playerPoints<MOVE_COST && !gameOver) {
+    playerPoints+=1.0;
+    message='Tu passes ton tour (+1 pt)';
+    turn='ai'; render();
+    setTimeout(doAiTurn,220);
+  }
+}
+
+function selectSteps(n) {
+  selectedSteps=n;
+  document.getElementById('btn-1').classList.toggle('active',n===1);
+  document.getElementById('btn-2').classList.toggle('active',n===2);
+  updateHighlights();
+  render();
+}
+
+// ─── DESSIN ───────────────────────────────────────────────────
+const VAL_COLORS = ['#16161f','#233c55','#2d5f41','#4b7d2d'];
+const PLAYER_COLOR='#3c8cff', AI_COLOR='#ff4659';
+const HL_YELLOW='#ffdc32', HL_GREEN='#c8ff96';
+
+function drawBoard() {
+  const cs=cellSize();
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  for (let i=0;i<G;i++) for (let j=0;j<G;j++) {
+    const x=j*cs, y=i*cs;
+    const val=board[i][j], own=ownership[i][j];
+
+    // Fond
+    if (own===1) ctx.fillStyle=PLAYER_COLOR;
+    else if (own===2) ctx.fillStyle=AI_COLOR;
+    else ctx.fillStyle=VAL_COLORS[val>=0?val:0];
+
+    roundRect(ctx,x+1,y+1,cs-2,cs-2,4);
+    ctx.fill();
+
+    // Surbrillances
+    const isHL=inList(highlights,[i,j]);
+    const isMid=pendingMid&&pendingMid[0]===i&&pendingMid[1]===j;
+    const isMidOpt=inList(midOptions,[i,j]);
+
+    if (isHL) { ctx.strokeStyle=HL_YELLOW; ctx.lineWidth=2.5; roundRect(ctx,x+1.5,y+1.5,cs-3,cs-3,4); ctx.stroke(); }
+    else if (isMid) { ctx.strokeStyle=HL_GREEN; ctx.lineWidth=2.5; roundRect(ctx,x+1.5,y+1.5,cs-3,cs-3,4); ctx.stroke(); }
+    else if (isMidOpt) { ctx.strokeStyle=HL_GREEN; ctx.lineWidth=1.5; roundRect(ctx,x+1.5,y+1.5,cs-3,cs-3,4); ctx.stroke(); }
+
+    // Valeur texte
+    if (val>0 && own===0) {
+      ctx.fillStyle='#dcdcf0';
+      ctx.font=`bold ${Math.floor(cs*0.36)}px "Share Tech Mono",monospace`;
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(val, x+cs/2, y+cs/2);
+    }
+
+    // Grille
+    ctx.strokeStyle='#23233a'; ctx.lineWidth=1;
+    ctx.strokeRect(x,y,cs,cs);
+
+    // Pions
+    if (own===1 && i===playerPos[0] && j===playerPos[1]) drawPion(x+cs/2,y+cs/2,cs,PLAYER_COLOR);
+    else if (own===2 && i===aiPos[0] && j===aiPos[1]) drawPion(x+cs/2,y+cs/2,cs,AI_COLOR);
+  }
+}
+
+function drawPion(cx,cy,cs,color) {
+  const r=cs/2-6;
+  ctx.beginPath(); ctx.arc(cx,cy,r+2,0,Math.PI*2);
+  ctx.fillStyle='rgba(255,255,255,0.9)'; ctx.fill();
+  ctx.beginPath(); ctx.arc(cx,cy,r-1,0,Math.PI*2);
+  ctx.fillStyle=color; ctx.fill();
+}
+
+function roundRect(ctx,x,y,w,h,r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+  ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y);
+  ctx.closePath();
+}
+
+// ─── UI ───────────────────────────────────────────────────────
+function render() {
+  drawBoard();
+
+  // Barre de tours
+  const left=Math.max(0,MAX_TURNS-turnCount);
+  const pct=(left/MAX_TURNS)*100;
+  const barColor=left>10?'#50c850':left>5?'#e6b41e':'#dc3c3c';
+  document.getElementById('turn-bar-fill').style.width=pct+'%';
+  document.getElementById('turn-bar-fill').style.background=barColor;
+  document.getElementById('turn-label').textContent=`Tours : ${turnCount}/${MAX_TURNS} — ${left} restants`;
+
+  // Scores
+  document.getElementById('player-pts').textContent=playerPoints.toFixed(1)+' pts';
+  document.getElementById('ai-pts').textContent=aiPoints.toFixed(1)+' pts';
+
+  // Info 2 cases
+  const info=document.getElementById('step-info');
+  if (selectedSteps===2 && !gameOver && turn==='player') {
+    info.textContent=pendingMid===null?'1. Clique intermédiaire':'2. Clique destination';
+  } else { info.textContent=''; }
+
+  // Skip btn
+  const skipBtn=document.getElementById('skip-btn');
+  skipBtn.style.display=(turn==='player'&&playerPoints<MOVE_COST&&!gameOver)?'block':'none';
+
+  // Statusbar
+  const turnEl=document.getElementById('status-turn');
+  const msgEl=document.getElementById('status-msg');
+  const scoreEl=document.getElementById('status-score');
+
+  if (gameOver) {
+    turnEl.textContent='FIN DE PARTIE';
+    turnEl.style.color='var(--yellow)';
+  } else if (turn==='player') {
+    let txt='TON TOUR';
+    if (selectedSteps===2) txt+=' — '+(pendingMid===null?'clique intermédiaire':'clique destination');
+    turnEl.textContent=txt;
+    turnEl.style.color='var(--player-l)';
+  } else {
+    turnEl.textContent='TOUR IA';
+    turnEl.style.color='var(--ai-l)';
+  }
+  msgEl.textContent=message;
+  scoreEl.textContent=`Joueur : ${playerPoints.toFixed(1)} | IA : ${aiPoints.toFixed(1)}`;
+}
+
+// ─── EVENTS ───────────────────────────────────────────────────
+canvas.addEventListener('click', e => {
+  if (gameOver || turn!=='player') return;
+  const rect=canvas.getBoundingClientRect();
+  const cs=cellSize();
+  const col=Math.floor((e.clientX-rect.left)/cs);
+  const row=Math.floor((e.clientY-rect.top)/cs);
+  if (row<0||row>=G||col<0||col>=G) return;
+  const cell=[row,col];
+
+  if (selectedSteps===1) {
+    if (inList(highlights,cell)) doPlayerMove1(cell);
+  } else {
+    if (pendingMid===null) {
+      if (inList(midOptions,cell)) { updateHighlightsAfterMid(cell); render(); }
+    } else {
+      if (inList(highlights,cell)) doPlayerMove2(pendingMid,cell);
+      else if (inList(midOptions,cell)) { updateHighlightsAfterMid(cell); render(); }
+      else { updateHighlights(); render(); }
+    }
+  }
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key==='r'||e.key==='R') { resetGame(); return; }
+  if (e.key==='1') { selectSteps(1); return; }
+  if (e.key==='2') { selectSteps(2); return; }
+  if (e.key===' ') { e.preventDefault(); skipTurn(); return; }
+  if (e.key==='Escape' && selectedSteps===2 && pendingMid) { updateHighlights(); render(); }
+});
+
+window.addEventListener('resize', () => { resizeCanvas(); render(); });
+
+// ─── INIT ─────────────────────────────────────────────────────
+resizeCanvas();
+resetGame();
+</script>
 </body>
 </html>
